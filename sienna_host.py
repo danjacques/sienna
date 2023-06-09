@@ -2,9 +2,13 @@
 
 import argparse
 import datetime
+import jinja2
 import json
 import pytimeparse
 import sys
+
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from util.cache import Cache
 
@@ -24,7 +28,11 @@ def get_dealer_phone(dealer):
       for contact in detail['dealerParty']['specifiedOrganization']['primaryContact']:
         for entry in contact.get('telephoneCommunication', []):
           if entry.get('channelCode', {}).get('value') == 'Phone':
-            return entry['completeNumber']['value']
+            value = entry['completeNumber']['value']
+            if len(value) == 10:
+              return '(%s)-%s-%s' % (value[:3], value[3:6], value[6:])
+            else:
+              return value
   return None
     
 
@@ -47,26 +55,11 @@ def get_dealer_address(dealer):
   return None
 
 
-def main():
-  parser = argparse.ArgumentParser()
-  parser.add_argument('input')
-  parser.add_argument('--cache', required=True)
-  parser.add_argument('--filter', action='store_true')
-  parser.add_argument('--since',  default=None, 
-                      action=TimeDeltaAction)
-  parser.add_argument('--max_markup',  default=None, type=int)
-  args = parser.parse_args()
-
-  cache = Cache(args.cache)
-  with open(args.input, 'r') as fd:
-    vehicles = json.load(fd)
-
+def load_infos(cache, args, vehicles):
   cutoff = None
   if args.since:
     now = datetime.datetime.now()
     cutoff = now - args.since
-
-  print('Loaded %d vehicle(s)...' % (len(vehicles),))
 
   infos = []
   for vehicle in vehicles:
@@ -122,7 +115,6 @@ def main():
         notable_options.append('XSE+')
       elif code == 'ST':
         notable_options.append('SPARE')
-    notable_options = '; '.join(notable_options)
     if filter and not has_desired_options:
       continue
 
@@ -136,6 +128,7 @@ def main():
 
 
     info = {
+      'title': model['marketingTitle'],
       'model': model['marketingName'],
       'vin': vin,
       'status': status,
@@ -158,10 +151,65 @@ def main():
     info['dealer_address'] = get_dealer_address(dealer)
 
     infos.append(info)
+  return infos
 
-  infos.sort(key=lambda x: x['distance'])
-  for info in infos:
-    print('  - %r' % (info,))
+
+def serve(port, infos):
+  env = Environment(
+    loader=FileSystemLoader('templates'),
+    autoescape=select_autoescape(),
+  )
+
+  class Server(BaseHTTPRequestHandler):
+    def do_GET(self):
+      self.send_response(200)
+      self.send_header("Content-type", "text/html")
+      self.end_headers()
+
+      template = env.get_template('index.html')
+      self._write(template.render(vehicles=infos))
+
+    def _write(self, data):
+      self.wfile.write(bytes(data, 'utf-8'))
+
+
+
+  HOSTNAME = 'localhost'
+  server = HTTPServer((HOSTNAME, port), Server)
+  print("Server started http://%s:%s" % (HOSTNAME, port))
+  try:
+    server.serve_forever()
+  except KeyboardInterrupt:
+    pass
+
+  server.server_close()
+  print("Server closed")
+
+
+def main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument('input')
+  parser.add_argument('--cache', required=True)
+  parser.add_argument('--port',  default=8080, type=int)
+  parser.add_argument('--filter', action='store_true')
+  parser.add_argument('--since',  default=None, 
+                      action=TimeDeltaAction)
+  parser.add_argument('--max_markup',  default=None, type=int)
+  args = parser.parse_args()
+
+  cache = Cache(args.cache)
+  with open(args.input, 'r') as fd:
+    vehicles = json.load(fd)
+
+  print('Loaded %d vehicle(s)...' % (len(vehicles),))
+  infos = load_infos(cache, args, vehicles)
+  
+  if args.port != 0:
+    serve(args.port, infos)
+  else:
+    infos.sort(key=lambda x: x['distance'])
+    for info in infos:
+      print('  - %r' % (info,))
 
 
 

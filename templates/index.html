@@ -1,0 +1,85 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+
+  <title>Sienna Listing</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz"
+    crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <div class="container mw-100 text-center">
+    <div class="card-deck">
+      {% for vehicle in vehicles %}
+      <div class="card d-inline-flex p-3 m-1 bg-light text-center">
+        <div class="card-body">
+          <h5 class="card-title">{{ vehicle.title }}</h5>
+          <p class="card-text">VIN: {{ vehicle.vin }}</p>
+          <p class="card-text">
+          <ul class="list-group">
+            <!-- Header -->
+            <li class="list-group-item">MSRP: ${{ vehicle.msrp }}</li>
+            <li class="list-group-item">Price: ${{ vehicle.advertised_price }}</li>
+
+            {% if vehicle.price_markup > 0 %}
+            <li class="list-group-item list-group-item-danger">Price Markup: ${{ vehicle.price_markup }}</li>
+            {% else %}
+            <li class="list-group-item list-group-item-success">No listed markup</li>
+            {% endif %}
+
+            <li class="list-group-item">Distance: {{ vehicle.distance }} miles</li>
+            <li class="list-group-item">Color: ${{ vehicle.color }}</li>
+            <!-- END Header -->
+
+            <!-- Options -->
+            {% if vehicle.options %}
+            <li class="list-group-item">
+              <span>Options</span>
+              <ul class="list-group">
+                {% for option in vehicle.options %}
+                <li class="list-group-item">{{option}}</li>
+                {% endfor %}
+              </ul>
+            </li>
+            {% endif %}
+            <!-- END Options -->
+
+            <!-- Dealer -->
+            <li class="list-group-item">
+              Dealer:
+              <ul class="list-group">
+                <li class="list-group-item">
+                  {% if vehicle.dealer_website %}
+                  <a href="{{ vehicle.dealer_website }}" target="_blank">
+                    {{ vehicle.dealer_name }}
+                  </a>
+                  {% else %}
+                  {{ vehicle.dealer_name }}
+                  {% endif %}
+                </li>
+                {% if vehicle.dealer_phone %}
+                <li class="list-group-item">{{ vehicle.dealer_phone }}</li>
+                {% endif %}
+
+                {% if vehicle.dealer_address %}
+                <li class="list-group-item">{{ vehicle.dealer_address }}</li>
+                {% endif %}
+            </li>
+            <!-- END Dealer -->
+          </ul>
+          </p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</body>
+
+</html>
