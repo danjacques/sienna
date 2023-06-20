@@ -2,6 +2,7 @@
 
 import argparse
 import datetime
+import os
 import requests
 import json
 
@@ -197,6 +198,9 @@ def main():
     result = load_page(query, i)
 
     response = result.get('data', {}).get('locateVehiclesByZip', {})
+    if response is None:
+      break
+
     output.extend(response.get('vehicleSummary', []))
     print('Have responses: %d' % (len(output),))
 
@@ -220,6 +224,8 @@ def main():
       print('New vehicle [%s]: %s' % (vin, now))
       cache.put(Cache.VIN_SEEN, vin, {'date_from_epoch': now.timestamp()})
 
+  if os.path.exists(args.output):
+    os.rename(args.output, args.output + '_%d' % (now.timestamp(),))
   with open(args.output, 'w') as fd:
     json.dump(output, fd, indent='  ')
 

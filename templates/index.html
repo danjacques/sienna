@@ -19,30 +19,55 @@
       {% for vehicle in vehicles %}
       <div class="card d-inline-flex p-3 m-1 bg-light text-center">
         <div class="card-body">
+          <a name="car{{loop.index}}"></a>
           <h5 class="card-title">{{ vehicle.title }}</h5>
-          <p class="card-text">VIN: {{ vehicle.vin }}</p>
+          <p class="list-group-item">
+            <span>
+              {% if vehicle.state == 'MARKED' %}
+              ✅
+              {% endif %}
+              VIN: {{ vehicle.vin }} {{vehicle.badges}}
+            </span>
+          </p>
           <p class="card-text">
           <ul class="list-group">
             <!-- Header -->
+            <li class="list-group-item">First Seen: {{ vehicle.seen_time }}</li>
             <li class="list-group-item">MSRP: ${{ vehicle.msrp }}</li>
             <li class="list-group-item">Price: ${{ vehicle.advertised_price }}</li>
 
-            {% if vehicle.price_markup > 0 %}
+            {% if vehicle.price_markup > 3000 %}
             <li class="list-group-item list-group-item-danger">Price Markup: ${{ vehicle.price_markup }}</li>
+            {% elif vehicle.price_markup > 0 %}
+            <li class="list-group-item list-group-item-warning">Price Markup: ${{ vehicle.price_markup }}</li>
             {% else %}
             <li class="list-group-item list-group-item-success">No listed markup</li>
             {% endif %}
 
             <li class="list-group-item">Distance: {{ vehicle.distance }} miles</li>
-            <li class="list-group-item">Color: ${{ vehicle.color }}</li>
+            <li class="list-group-item">Exterior Color: {{ vehicle.color }}</li>
+            <li class="list-group-item">Interior Color: {{ vehicle.intColor }}</li>
             <!-- END Header -->
 
-            <!-- Options -->
-            {% if vehicle.options %}
+            <!-- Notable Options -->
+            {% if vehicle.notable_options %}
             <li class="list-group-item">
-              <span>Options</span>
+              <span>Notable Options</span>
               <ul class="list-group">
-                {% for option in vehicle.options %}
+                {% for option in vehicle.notable_options %}
+                <li class="list-group-item">{{option}}</li>
+                {% endfor %}
+              </ul>
+            </li>
+            {% endif %}
+            <!-- END Options -->
+
+            <!-- Other Options -->
+            {% if vehicle.other_options %}
+            <li class="list-group-item">
+              <span>Other Options</span>
+              <ul class="list-group">
+                {% for option in vehicle.other_options %}
                 <li class="list-group-item">{{option}}</li>
                 {% endfor %}
               </ul>
@@ -72,6 +97,18 @@
                 {% endif %}
             </li>
             <!-- END Dealer -->
+
+            <!-- Remove Button -->
+            <li class="list-group-item">
+              <form action="/operation/{{ vehicle.vin }}?anchor=car{{loop.index}}" method="post">
+                <button class="btn btn-warning" name="markVin" value="{{vehicle.vin}}">
+                  Mark
+                </button>
+                <button class="btn btn-danger" name="removeVin" value="{{vehicle.vin}}">
+                  Remove
+                </button>
+              </form>
+            </li>
           </ul>
           </p>
         </div>

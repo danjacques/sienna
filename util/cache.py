@@ -4,6 +4,7 @@ import os
 class Cache:
   VIN_SEEN = 'vin_seen'
   DEALER = 'dealer'
+  REMOVED = 'removed'
 
   def __init__(self, path):
     self._path = path
