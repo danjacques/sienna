@@ -1,18 +1,13 @@
 # Program to fetch Toyota Sienna listings.
 
 import argparse
+import copy
 import datetime
 import os
 import requests
 import json
 
 from util.cache import Cache
-
-HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36',
-  'Content-Type': 'application/json',
-}
-
 
 class Query:
   zip = 22124
@@ -21,159 +16,163 @@ class Query:
   pass
 
 
-def load_page(query, page_number):
-  endpoint = 'https://api.search-inventory.toyota.com/graphql'
-  graphql_query = """
-query {
-    locateVehiclesByZip(
-        zipCode: \"%(zip)s\",
-        brand: \"TOYOTA\",
-        pageNo: %(page_number)d,
-        pageSize: %(page_size)d,
-        seriesCodes: \"sienna\",
-        distance: %(distance_miles)d,
-        leadid: \"800c67b5-b4d0-4d47-acca-a26b4cfb6f1c\"
-      ) {
-      pagination {
-        pageNo
-        pageSize
-        totalPages
-        totalRecords
-      }
-      vehicleSummary {
-        vin
-        stockNum
-        brand
-        marketingSeries
-        year
-        isTempVin
-        dealerCd
-        dealerCategory
-        distributorCd
-        holdStatus
-        weightRating
-        isPreSold
-        dealerMarketingName
-        dealerWebsite
-        isSmartPath
-        distance
-        isUnlockPriceDealer
-        transmission {
-          transmissionType
+class Loader:
+  BASE_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+    'Content-Type': 'application/json',
+    'X-Cache-Key': 'vehicles-22124-sienna-100',
+  }
+
+  def __init__(self, args):
+    self._args = args
+
+  def get_headers(self):
+    headers = copy.deepcopy(self.BASE_HEADERS)
+    headers['X-Aws-Waf-Token'] = self._args.aws_waf_tmtken
+    return headers
+
+  def load_page(self, query, page_number):
+    endpoint = 'https://api.search-inventory.toyota.com/graphql'
+    graphql_query = """
+  query {
+      locateVehiclesByZip(
+          zipCode: \"%(zip)s\",
+          brand: \"TOYOTA\",
+          pageNo: %(page_number)d,
+          pageSize: %(page_size)d,
+          seriesCodes: \"sienna\",
+          distance: %(distance_miles)d,
+          leadid: \"800c67b5-b4d0-4d47-acca-a26b4cfb6f1c\"
+        ) {
+        pagination {
+          pageNo
+          pageSize
+          totalPages
+          totalRecords
         }
-        price {
-          advertizedPrice
-          nonSpAdvertizedPrice
-          totalMsrp
-          sellingPrice
-          dph
-          dioTotalMsrp
-          dioTotalDealerSellingPrice
-          dealerCashApplied
-          baseMsrp
-        }
-        options {
-          optionCd
-          marketingName
-          marketingLongName
-          optionType
-          packageInd
-        }
-        mpg {
-          city
-          highway
-          combined
-        }
-        model {
-          modelCd
-          marketingName
-          marketingTitle
-        }
-        media {
-          type
-          href
-          imageTag
-          source
-        }
-        intColor {
-          colorCd
-          colorSwatch
-          marketingName
-          nvsName
-          colorFamilies
-        }
-        extColor {
-          colorCd
-          colorSwatch
-          marketingName
-          colorHexCd
-          nvsName
-          colorFamilies
-        }
-        eta {
-          currFromDate
-          currToDate
-        }
-        engine {
-          engineCd
-          name
-        }
-        drivetrain {
-          code
-          title
-          bulletlist
-        }
-        family
-        cab {
-          code
-          title
-          bulletlist
-        }
-        bed {
-          code
-          title
-          bulletlist
+        vehicleSummary {
+          vin
+          stockNum
+          brand
+          marketingSeries
+          year
+          isTempVin
+          dealerCd
+          dealerCategory
+          distributorCd
+          holdStatus
+          weightRating
+          isPreSold
+          dealerMarketingName
+          dealerWebsite
+          isSmartPath
+          distance
+          isUnlockPriceDealer
+          transmission {
+            transmissionType
+          }
+          price {
+            advertizedPrice
+            nonSpAdvertizedPrice
+            totalMsrp
+            sellingPrice
+            dph
+            dioTotalMsrp
+            dioTotalDealerSellingPrice
+            dealerCashApplied
+            baseMsrp
+          }
+          options {
+            optionCd
+            marketingName
+            marketingLongName
+            optionType
+            packageInd
+          }
+          mpg {
+            city
+            highway
+            combined
+          }
+          model {
+            modelCd
+            marketingName
+            marketingTitle
+          }
+          media {
+            type
+            href
+            imageTag
+            source
+          }
+          intColor {
+            colorCd
+            colorSwatch
+            marketingName
+            nvsName
+            colorFamilies
+          }
+          extColor {
+            colorCd
+            colorSwatch
+            marketingName
+            colorHexCd
+            nvsName
+            colorFamilies
+          }
+          eta {
+            currFromDate
+            currToDate
+          }
+          engine {
+            engineCd
+            name
+          }
+          drivetrain {
+            code
+            title
+            bulletlist
+          }
+          family
+          cab {
+            code
+            title
+            bulletlist
+          }
+          bed {
+            code
+            title
+            bulletlist
+          }
         }
       }
     }
-  }
-  """ % {
-    'zip': query.zip,
-    'page_number': page_number,
-    'page_size': query.page_size,
-    'distance_miles': query.distance_miles,
-  }
+    """ % {
+      'zip': query.zip,
+      'page_number': page_number,
+      'page_size': query.page_size,
+      'distance_miles': query.distance_miles,
+    }
 
-  data = {
-    'query': graphql_query,
-  }
-  r = requests.post(endpoint, headers=HEADERS, data=json.dumps(data))
-  if r.status_code != 200:
-    raise Exception('Failed to get data (%d): %s' % (r.status_code, r.text))
-  return r.json()
-
-
-def load_smartpath_dealer(cache, dealer_code):
-  cached = cache.get(Cache.DEALER, dealer_code)
-  if cached:
-    return cached
-
-  endpoint = 'https://smartpath.toyota.com/service/tcom/dealerDetail/dealerCode/%s' % (dealer_code,)
-  r = requests.get(endpoint, headers=HEADERS)
-  result = r.json()
-  return cache.put(Cache.DEALER, dealer_code, result)
+    data = {
+      'query': graphql_query,
+    }
+    r = requests.post(endpoint, headers=self.get_headers(), data=json.dumps(data))
+    if r.status_code != 200:
+      raise Exception('Failed to get data (%d): %s' % (r.status_code, r.text))
+    return r.json()
 
 
-def load_dealer(cache, dealer_code):
-  cached = cache.get(Cache.DEALER, dealer_code)
-  if cached:
-    return cached
+  def load_dealer(self, cache, dealer_code):
+    cached = cache.get(Cache.DEALER, dealer_code)
+    if cached:
+      return cached
 
-  endpoint = 'https://api.dg.toyota.com/api/v2/dealers/%s?brand=toyota' % (dealer_code,)
-  r = requests.get(endpoint, headers=HEADERS)
-  result = r.json()
-  print('Loaded dealer %s!' % (dealer_code,))
-  return cache.put(Cache.DEALER, dealer_code, result)
+    endpoint = 'https://api.dg.toyota.com/api/v2/dealers/%s?brand=toyota' % (dealer_code,)
+    r = requests.get(endpoint, headers=self.get_headers())
+    result = r.json()
+    print('Loaded dealer %s!' % (dealer_code,))
+    return cache.put(Cache.DEALER, dealer_code, result)
 
 
 def main():
@@ -185,6 +184,7 @@ def main():
                       default=Query.distance_miles, type=int)
   parser.add_argument('--output', required=True)
   parser.add_argument('--cache', required=True)
+  parser.add_argument('--aws_waf_token', required=True)
   args = parser.parse_args()
 
   query = Query()
@@ -193,9 +193,10 @@ def main():
   query.distance_miles = args.distance_miles
   
   output = []
+  loader = Loader(args)
   for i in range(1, 1000):
     print('Loading page %d...' % (i,))
-    result = load_page(query, i)
+    result = loader.load_page(query, i)
 
     response = result.get('data', {}).get('locateVehiclesByZip', {})
     if response is None:
@@ -216,7 +217,7 @@ def main():
     dealer_code = out['dealerCd']
     if dealer_code not in seen_dealers:
       seen_dealers.add(dealer_code)
-      load_dealer(cache, dealer_code)
+      loader.load_dealer(cache, dealer_code)
 
     # Load VIN-seen information.
     vin = out['vin']
