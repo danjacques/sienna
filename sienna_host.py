@@ -140,7 +140,7 @@ def load_infos(cache, args, vehicles):
         if name:
           other_options.append(name.replace('[installed_msrp]', ''))
 
-    if filter and desirability == 0:
+    if filter and desirability < args.min_desirability:
       continue
 
     advertised_price = price.get('advertizedPrice') or 0
@@ -259,7 +259,7 @@ def serve(port, cache, get_infos):
 
 
 
-  HOSTNAME = 'localhost'
+  HOSTNAME = '0.0.0.0'
   print("Server started http://%s:%s" % (HOSTNAME, port))
   with HTTPServer((HOSTNAME, port), Server) as server:
     server.serve_forever()
@@ -272,6 +272,7 @@ def main():
   parser.add_argument('--cache', required=True)
   parser.add_argument('--port',  default=8080, type=int)
   parser.add_argument('--filter', action='store_true')
+  parser.add_argument('--min_desirability', default=1, type=int)
   parser.add_argument('--sort', default='distance')
   parser.add_argument('--since',  default=None, 
                       action=TimeDeltaAction)
